@@ -1,0 +1,14 @@
+# R
+.Rhistory
+.Rdata
+.RData
+.Rproj.user/
+
+# knitr / rmarkdown build artifacts
+*_cache/
+*_files/
+docs/
+
+# OS
+.DS_Store
+Thumbs.db

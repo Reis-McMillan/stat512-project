@@ -1,0 +1,141 @@
+---
+title: "STAT 512 Project"
+knit: (function(input, ...) rmarkdown::render(input, output_dir = "docs"))
+output:
+  html_document:
+    theme: cosmo
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results="hide"}
+library(tidyverse)
+library(janitor)
+library(car)
+library(lmtest)
+```
+
+# Research Question
+We ask: *Does a shift from a manufacturing-based economy to a professional 
+services-based economy correlate with a decrease in total crime rates when 
+controlling for unemployment?*
+
+We use the following log-level model to assess our research question:
+$$
+\begin{aligned}
+\log(\text{Crimes per Capita}) = \beta_0 &+ \beta_1 \text{Percent Unemployment} \\
+    &+ \beta_2 \text{Percent Employment in Manufacturing} \\
+    &+ \beta_3 \text{Percent Employment in Professional Services} \\
+    &+ \beta_4 \text{Percent of Occupations Manufacturing} \\
+    &+ \beta_5 \text{Percent of Occupations Management Professionals} \\
+    &+ \epsilon
+\end{aligned}
+$$
+
+Formally stated, our null and alternative hypotheses are:
+$$
+\begin{aligned}
+H_0: &\beta_3 = 0 \\
+H_a: &\beta_3 < 0 
+\end{aligned}
+$$
+
+# Data
+```{r}
+raw_data <- read.csv(
+  "/home/reis/Documents/stat512/project1/raw_data.csv",
+  na = c("", "NA", "?")
+)
+```
+
+We restrict ourselves to the following columns from the dataset:
+
+- $\text{ViolentCrimesPerPop}$: Violent crimes per capita
+- $\text{NonViolPerPop}$: Non-violent crimes per capita
+- $\text{PctUnemployed}$: Percent of population unemployed
+- $\text{PctEmplManu}$: Percent of population employed in manufacturing
+- $\text{PctEmplProfServ}$: Percent of population employed in professional services
+- $\text{PctOccupManu}$: Percent of occupations in manufacturing
+- $\text{PctOccupMgmtProf}$:  Percent of occupations in management and professional services
+
+We define 'CrimesPerPop' as the sum of 'ViolentCrimesPerPop' and 'NonViolPerPop'.
+
+We omit any rows with missing values to yield a dataset of 1,902 observations.
+
+The predictors them become:
+
+- $X_1: \text{PctUnemployed}$: [0, 100]
+- $X_2$: $\text{PctEmplManu}$: [0, 100]
+- $X_3$: $\text{PctEmplProfServ}$ : [0, 100]
+- $X_4$: $\text{PctOccupManu}$ : [0, 100]
+- $X_5$: $\text{PctOccupMgmtProf}$ : [0, 100]
+
+The response variable is:
+
+- $Y$: $log(\text{CrimesPerPop})$ : [0, 11.512]
+
+```{r}
+clean_data <- raw_data |> clean_names()
+
+# 2. Filter columns
+na_summary <- colMeans(is.na(clean_data))
+cols_to_keep <- names(na_summary[na_summary < 0.25])
+clean_data <- clean_data |>
+  select(all_of(cols_to_keep)) |>
+  select(-any_of(c("communityname", "fold")))
+
+# 3. Feature Engineering (Add a small constant to avoid log(0) = -Inf)
+clean_data$crimes_per_pop <-
+  clean_data$violent_crimes_per_pop + clean_data$non_viol_per_pop
+
+model_cols <- c("crimes_per_pop", "pct_unemployed", "pct_empl_manu",
+                "pct_empl_prof_serv", "pct_occup_manu", "pct_occup_mgmt_prof")
+
+model_data <- na.omit(clean_data[, model_cols]) |>
+  filter(if_all(everything(), ~ . > 0))
+```
+
+# Model Fitting
+```{r}
+model <- lm(log(crimes_per_pop) ~ pct_unemployed + pct_empl_manu +
+              pct_empl_prof_serv + pct_occup_manu +
+              pct_occup_mgmt_prof, data = model_data)
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+avPlots(model)
+```
+
+# Residuals and Assumption Checking
+```{r}
+plot(model, which = 1) # Residuals vs Fitted
+plot(model, which = 2) # Normal Q-Q
+```
+
+### Shaprio-Wilk test for normality of residuals
+```{r}
+res <- residuals(model)
+shapiro.test(res)
+```
+
+### Breusch-Pagan test for homoscedasticity
+```{r}
+bptest(model)
+```
+
+### Browns-Forsythe test for homoscedasticity
+```{r}
+log_unemp <- log(model_data$pct_unemployed)
+g <- cut(log_unemp, 
+         breaks = quantile(log_unemp, probs = seq(0, 1, by = .25)), 
+         include.lowest = TRUE)
+
+leveneTest(res ~ g, center = median)
+```
