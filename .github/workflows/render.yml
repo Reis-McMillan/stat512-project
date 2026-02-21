@@ -26,7 +26,12 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: rmarkdown
+          packages: |
+            rmarkdown
+            tidyverse
+            janitor
+            car
+            lmtest
 
       - name: Render site
         run: Rscript -e 'rmarkdown::render_site()'
