@@ -46,7 +46,7 @@ $$
 # Data
 ```{r}
 raw_data <- read.csv(
-  "/home/reis/Documents/stat512/project1/raw_data.csv",
+  "data/raw_data.csv",
   na = c("", "NA", "?")
 )
 ```
