@@ -38,8 +38,8 @@ $$
 Formally stated, our null and alternative hypotheses are:
 $$
 \begin{aligned}
-H_0: &\beta_3 = 0 \\
-H_a: &\beta_3 < 0 
+H_0: &\beta_3 = 0 | \beta_0, \beta_1, \beta_2, \beta_4, \beta_5 \\
+H_a: &\beta_3 < 0 | \beta_0, \beta_1, \beta_2, \beta_4, \beta_5 
 \end{aligned}
 $$
 
@@ -96,6 +96,8 @@ model_cols <- c("crimes_per_pop", "pct_unemployed", "pct_empl_manu",
 
 model_data <- na.omit(clean_data[, model_cols]) |>
   filter(if_all(everything(), ~ . > 0))
+
+attach(model_data)
 ```
 
 # Model Fitting
@@ -138,4 +140,19 @@ g <- cut(log_unemp,
          include.lowest = TRUE)
 
 leveneTest(res ~ g, center = median)
+```
+
+# F-test and Reduced Model Comparison
+```{r}
+summary(model)
+```
+
+```{r}
+model_reduced <- lm(log(crimes_per_pop) ~ pct_unemployed + pct_empl_manu +
+              pct_occup_manu + pct_occup_mgmt_prof, data = model_data)
+summary(model_reduced)
+```
+
+```{r}
+anova(model_reduced, model)
 ```
